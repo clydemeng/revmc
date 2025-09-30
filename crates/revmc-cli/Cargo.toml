@@ -26,6 +26,9 @@ revmc.workspace = true
 revm-interpreter = { workspace = true, features = ["parse"] }
 revm-primitives.workspace = true
 
+# Pull in builtins so AOT shared objects can resolve __revmc_builtin_* at runtime
+revmc-builtins = { workspace = true, default-features = false }
+
 clap = { version = "4", features = ["derive"] }
 color-eyre.workspace = true
 libloading = "0.8"

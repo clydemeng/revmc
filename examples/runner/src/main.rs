@@ -3,18 +3,19 @@ use revm::{
     primitives::{address, hex, AccountInfo, Bytecode, TransactTo, U256},
 };
 use revmc_examples_runner::build_evm;
-
+use std::time::Instant;
 include!("./common.rs");
 
 fn main() {
     let num =
-        std::env::args().nth(1).map(|s| s.parse().unwrap()).unwrap_or_else(|| U256::from(100));
+        std::env::args().nth(1).map(|s| s.parse().unwrap()).unwrap_or_else(|| U256::from(50));
     // The bytecode runs fib(input + 1), so we need to subtract 1.
+    println!("num: {:?}", num);
     let actual_num = num.saturating_sub(U256::from(1));
-
+    println!("actual_num: {:?}", actual_num);
     let db = CacheDB::new(EmptyDB::new());
     let mut evm = build_evm(db);
-    let fibonacci_address = address!("0000000000000000000000000000000000001234");
+    let fibonacci_address = address!("0000000000000000000000000000000000001235");
     evm.db_mut().insert_account_info(
         fibonacci_address,
         AccountInfo {
@@ -25,8 +26,10 @@ fn main() {
     );
     evm.context.evm.env.tx.transact_to = TransactTo::Call(fibonacci_address);
     evm.context.evm.env.tx.data = actual_num.to_be_bytes_vec().into();
+    let start = Instant::now();
     let result = evm.transact().unwrap();
     // eprintln!("{:#?}", result.result);
-
+    let elapsed = start.elapsed();
+    println!("elapsed: {:?}", elapsed);
     println!("fib({num}) = {}", U256::from_be_slice(result.result.output().unwrap()));
 }

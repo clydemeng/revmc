@@ -2134,6 +2134,7 @@ dependencies = [
  "revm-primitives",
  "revmc",
  "revmc-build",
+ "revmc-builtins",
  "revmc-cli-tests",
  "tracing-subscriber",
  "tracing-tracy",
@@ -2175,6 +2176,20 @@ dependencies = [
  "eyre",
  "revmc",
  "revmc-build",
+]
+
+[[package]]
+name = "revmc-examples-fibonacci-bench-compare"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "eyre",
+ "revm",
+ "revm-primitives",
+ "revmc",
+ "revmc-build",
+ "revmc-builtins",
+ "revmc-context",
 ]
 
 [[package]]

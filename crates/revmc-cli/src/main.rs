@@ -5,11 +5,13 @@ use color_eyre::{eyre::eyre, Result};
 use revm_interpreter::{opcode::make_instruction_table, SharedMemory};
 use revm_primitives::{address, spec_to_generic, Env, SpecId, TransactTo};
 use revmc::{eyre::ensure, EvmCompiler, EvmContext, EvmLlvmBackend, OptimizationLevel};
+use revmc_builtins as _;
 use revmc_cli::{get_benches, read_code, Bench};
 use std::{
     hint::black_box,
     path::{Path, PathBuf},
 };
+
 
 #[derive(Parser)]
 struct Cli {

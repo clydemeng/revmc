@@ -21,8 +21,10 @@ fn main() -> Result<()> {
     let mut compiler = EvmCompiler::new(backend);
     compiler.translate(name, bytecode, SpecId::CANCUN)?;
     let object = out_dir.join(name).with_extension("o");
-    compiler.write_object_to_file(&object)?;
+    compiler.write_object_to_file(&object)?;  // clyde:  use AOT here
+    println!("AOT object is written to: {:?}", object);
 
+    // rustc truns the .o file (fibonacci.o) to a static library (libfibonacci.a) // commentted by clyde
     cc::Build::new().object(&object).static_flag(true).compile(name);
 
     Ok(())

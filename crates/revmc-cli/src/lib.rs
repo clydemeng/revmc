@@ -8,6 +8,10 @@ use revmc::{
 };
 use std::{cmp::Ordering, path::Path, str::FromStr};
 
+// This dependency is needed to define the necessary symbols used by the compiled bytecodes,
+// but we don't use it directly, so silence the unused crate dependency warning.
+use revmc_builtins as _;
+
 mod benches;
 pub use benches::*;
 
