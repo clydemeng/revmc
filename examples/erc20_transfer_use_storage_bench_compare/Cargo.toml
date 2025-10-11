@@ -22,6 +22,7 @@ revmc-builtins = { workspace = true, default-features = false }
 revmc-context = { workspace = true, default-features = false }
 revm = { workspace = true, default-features = false }
 revm-primitives = { workspace = true, default-features = false }
+revmc = { workspace = true, features = ["llvm-prefer-dynamic"] }
 eyre.workspace = true
 
 
