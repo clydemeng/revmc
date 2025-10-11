@@ -1,5 +1,5 @@
 [package]
-name = "revmc-examples-fibonacci-bench-compare"
+name = "revmc-examples-merkle-hash-bench-compare-aot-interpreter"
 publish = false
 
 version.workspace = true

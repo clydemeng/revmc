@@ -2179,7 +2179,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "revmc-examples-erc20-transfer-use-storage-bench-compare"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "eyre",
+ "revm",
+ "revm-primitives",
+ "revmc",
+ "revmc-build",
+ "revmc-builtins",
+ "revmc-context",
+]
+
+[[package]]
 name = "revmc-examples-fibonacci-bench-compare"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "eyre",
+ "revm",
+ "revm-primitives",
+ "revmc",
+ "revmc-build",
+ "revmc-builtins",
+ "revmc-context",
+]
+
+[[package]]
+name = "revmc-examples-merkle-hash-bench-compare"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "eyre",
+ "revm",
+ "revm-interpreter",
+ "revm-primitives",
+ "revmc",
+ "revmc-build",
+ "revmc-builtins",
+ "revmc-context",
+]
+
+[[package]]
+name = "revmc-examples-merkle-hash-bench-compare-aot-interpreter"
 version = "0.1.0"
 dependencies = [
  "cc",

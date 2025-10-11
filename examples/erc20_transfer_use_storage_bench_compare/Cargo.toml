@@ -1,5 +1,5 @@
 [package]
-name = "revmc-examples-fibonacci-bench-compare"
+name = "revmc-examples-erc20-transfer-use-storage-bench-compare"
 publish = false
 
 version.workspace = true
@@ -23,5 +23,6 @@ revmc-context = { workspace = true, default-features = false }
 revm = { workspace = true, default-features = false }
 revm-primitives = { workspace = true, default-features = false }
 eyre.workspace = true
+
 
 
