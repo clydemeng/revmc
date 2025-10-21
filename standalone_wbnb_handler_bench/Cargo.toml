@@ -1,0 +1,24 @@
+[package]
+name = "standalone_wbnb_handler_bench"
+version = "0.1.0"
+edition = "2021"
+
+# Ensure this crate is standalone (not part of the parent workspace)
+[workspace]
+members = []
+
+[dependencies]
+eyre = "0.6"
+revm-handler = "9.0.1"
+revm-context = "9.1.0"
+revm-database = "7.0.5"
+revm-primitives = "20.2.1"
+revm-bytecode = "6.2.2"
+revm-state = "7.0.5"
+
+[build-dependencies]
+revmc = { path = "../crates/revmc", default-features = false, features = ["llvm-prefer-dynamic", "asm-keccak"] }
+revmc-build = { path = "../crates/revmc-build" }
+cc = "1.0"
+
+

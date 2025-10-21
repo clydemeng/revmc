@@ -1,0 +1,25 @@
+[package]
+name = "revmc-examples-wbnb-bench-compare-handler"
+publish = false
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+categories.workspace = true
+keywords.workspace = true
+repository.workspace = true
+exclude.workspace = true
+
+[dependencies]
+revm-handler = "9.0.1"
+revm-context = "9.1.0"
+revm-database-interface = "7.0.5"
+revm-database = "7.0.5"
+revm-interpreter = "25.0.3"
+revm-precompile = "26.0.1"
+revm-primitives = "20.2.1"
+eyre = { workspace = true }
+
+

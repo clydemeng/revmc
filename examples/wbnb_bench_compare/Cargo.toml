@@ -1,0 +1,29 @@
+[package]
+name = "revmc-examples-wbnb-bench-compare"
+publish = false
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+categories.workspace = true
+keywords.workspace = true
+repository.workspace = true
+exclude.workspace = true
+
+[build-dependencies]
+revmc = { workspace = true, features = ["llvm-prefer-dynamic", "asm-keccak"] }
+revmc-build.workspace = true
+cc = "1.0"
+
+[dependencies]
+revmc-builtins = { workspace = true, default-features = false }
+revmc-context = { workspace = true, default-features = false }
+revm = { workspace = true, default-features = false }
+revm-primitives = { workspace = true, default-features = false }
+revm-interpreter = { workspace = true, default-features = false }
+revmc = { workspace = true, features = ["llvm-prefer-dynamic"] }
+eyre.workspace = true
+
+
