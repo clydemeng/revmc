@@ -15,6 +15,9 @@ revm-database = "7.0.5"
 revm-primitives = "20.2.1"
 revm-bytecode = "6.2.2"
 revm-state = "7.0.5"
+revm = "19.4.0"
+revmc-context = { path = "../crates/revmc-context" }
+revmc-builtins = { path = "../crates/revmc-builtins" }
 
 [build-dependencies]
 revmc = { path = "../crates/revmc", default-features = false, features = ["llvm-prefer-dynamic", "asm-keccak"] }

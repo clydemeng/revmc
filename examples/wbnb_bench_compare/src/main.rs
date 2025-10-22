@@ -61,7 +61,7 @@ fn main() {
     let from = address!("0000000000000000000000000000000000000001");
     let to = address!("000000000000000000000000000000000000BEEF");
     let amount = U256::from(1u64);
-    let warmup = 100u64;
+    let warmup = 0u64;
 
     let code_bytes = code();
     let hash = code_hash();
