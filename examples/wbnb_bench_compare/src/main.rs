@@ -15,10 +15,11 @@ fn code_hash() -> B256 { keccak256(code()) }
 
 revmc_context::extern_revmc! { fn wbnb; }
 
-pub struct ExternalContext;
+pub struct ExternalContext { target_hash: B256, aot_fn: revmc_context::EvmCompilerFn }
 impl ExternalContext {
+    #[inline]
     fn get_function(&self, bytecode_hash: B256) -> Option<revmc_context::EvmCompilerFn> {
-        if bytecode_hash == code_hash() { Some(revmc_context::EvmCompilerFn::new(wbnb)) } else { None }
+        if bytecode_hash == self.target_hash { Some(self.aot_fn) } else { None }
     }
 }
 
@@ -31,8 +32,13 @@ fn register_handler<DB: Database + 'static>(handler: &mut EvmHandler<'_, Externa
     });
 }
 
-fn build_evm_with_aot<'a, DB: Database + 'static>(db: DB) -> revm::Evm<'a, ExternalContext, DB> {
-    revm::Evm::builder().with_db(db).with_external_context(ExternalContext).append_handler_register(register_handler).build()
+fn build_evm_with_aot<'a, DB: Database + 'static>(db: DB, target_hash: B256) -> revm::Evm<'a, ExternalContext, DB> {
+    let aot = revmc_context::EvmCompilerFn::new(wbnb);
+    revm::Evm::builder()
+        .with_db(db)
+        .with_external_context(ExternalContext { target_hash, aot_fn: aot })
+        .append_handler_register(register_handler)
+        .build()
 }
 
 fn encode_transfer(to: revm_primitives::Address, amount: U256) -> Bytes {
@@ -47,9 +53,10 @@ fn encode_transfer(to: revm_primitives::Address, amount: U256) -> Bytes {
 fn encode_deposit() -> Bytes { Bytes::from(vec![0xd0, 0xe3, 0x0d, 0xb0]) }
 
 fn encode_balance_of(owner: revm_primitives::Address) -> Bytes {
-    let selector = &keccak256("balanceOf(address)").0[0..4];
+    // precomputed selector for balanceOf(address)
+    const SELECTOR: [u8;4] = [0x70, 0xa0, 0x82, 0x31];
     let mut data = Vec::with_capacity(4 + 32);
-    data.extend_from_slice(selector);
+    data.extend_from_slice(&SELECTOR);
     data.extend_from_slice(&U256::from_be_slice(owner.as_slice()).to_be_bytes::<32>());
     Bytes::from(data)
 }
@@ -71,7 +78,7 @@ fn main() {
 
     // Build AOT EVM
     let db_aot = CacheDB::new(EmptyDB::new());
-    let mut evm_aot = build_evm_with_aot(db_aot);
+    let mut evm_aot = build_evm_with_aot(db_aot, hash);
     evm_aot.db_mut().insert_account_info(contract, AccountInfo { code_hash: hash, code: Some(Bytecode::new_raw(code_bytes.clone())), ..Default::default() });
     evm_aot.context.evm.env.tx.transact_to = TransactTo::Call(contract);
     evm_aot.context.evm.env.tx.caller = from;
