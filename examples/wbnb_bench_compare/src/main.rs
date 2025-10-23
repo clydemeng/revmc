@@ -67,14 +67,14 @@ fn main() {
     let contract = address!("0000000000000000000000000000000000009999");
     let from = address!("0000000000000000000000000000000000000001");
     let to = address!("000000000000000000000000000000000000BEEF");
-    let amount = U256::from(1u64);
+    // variable per-iter amount; we'll compute 1,2,3,... later
     let warmup = 0u64;
 
     let code_bytes = code();
     let hash = code_hash();
 
-    // Compute total initial deposit needed (warmup + iters)
-    let initial = amount * U256::from(iters + warmup);
+    // Compute total initial deposit needed: sum_{k=1..iters} k = iters*(iters+1)/2
+    let initial = (U256::from(iters) * U256::from(iters + 1)) / U256::from(2u64);
 
     // Build AOT EVM
     let db_aot = CacheDB::new(EmptyDB::new());
@@ -119,27 +119,38 @@ fn main() {
     evm_plain.context.evm.env.tx.nonce = evm_plain.context.evm.env.tx.nonce.map(|n| n + 1);
 
     // Prepare transfer calldata
-    let cd_transfer = encode_transfer(to, amount);
-    evm_aot.context.evm.env.tx.data = cd_transfer.clone();
-    evm_plain.context.evm.env.tx.data = cd_transfer.clone();
+    // we will set per-iter calldata inside the loops (1,2,3,...)
 
-    // Measure AOT
-    let t_aot = Instant::now();
-    for _ in 0..iters {
-        let r = evm_aot.transact().unwrap();
+    // Measure AOT (split transact vs commit), use preverified to reduce validation overhead
+    let mut aot_transact_ns: u128 = 0;
+    let mut aot_commit_ns: u128 = 0;
+    for i in 0..iters {
+        // set variable amount (1 wei, 2 wei, ...)
+        evm_aot.context.evm.env.tx.data = encode_transfer(to, U256::from(i + 1));
+        let t0 = Instant::now();
+        let r = evm_aot.transact_preverified().unwrap();
+        aot_transact_ns += t0.elapsed().as_nanos();
+        let t1 = Instant::now();
         evm_aot.db_mut().commit(r.state);
+        aot_commit_ns += t1.elapsed().as_nanos();
         evm_aot.context.evm.env.tx.nonce = evm_aot.context.evm.env.tx.nonce.map(|n| n + 1);
     }
-    let d_aot = t_aot.elapsed();
+    let d_aot = std::time::Duration::from_nanos((aot_transact_ns + aot_commit_ns) as u64);
 
-    // Measure Interpreter
-    let t_interp = Instant::now();
-    for _ in 0..iters {
-        let r = evm_plain.transact().unwrap();
+    // Measure Interpreter (split) using preverified
+    let mut int_transact_ns: u128 = 0;
+    let mut int_commit_ns: u128 = 0;
+    for i in 0..iters {
+        evm_plain.context.evm.env.tx.data = encode_transfer(to, U256::from(i + 1));
+        let t0 = Instant::now();
+        let r = evm_plain.transact_preverified().unwrap();
+        int_transact_ns += t0.elapsed().as_nanos();
+        let t1 = Instant::now();
         evm_plain.db_mut().commit(r.state);
+        int_commit_ns += t1.elapsed().as_nanos();
         evm_plain.context.evm.env.tx.nonce = evm_plain.context.evm.env.tx.nonce.map(|n| n + 1);
     }
-    let d_interp = t_interp.elapsed();
+    let d_interp = std::time::Duration::from_nanos((int_transact_ns + int_commit_ns) as u64);
 
     // Verify balances
     let bal_of_from = encode_balance_of(from);
@@ -157,17 +168,17 @@ fn main() {
     evm_plain.context.evm.env.tx.data = bal_of_to.clone();
     let bv_i = { let r = evm_plain.transact().unwrap(); U256::from_be_slice(r.result.output().unwrap_or(&Bytes::new())) };
 
-    let moved = amount * U256::from(iters + warmup);
+    let moved = (U256::from(iters) * U256::from(iters + 1)) / U256::from(2u64);
     let ok_aot = av_a == U256::ZERO && bv_a == moved;
     let ok_int = av_i == U256::ZERO && bv_i == moved;
 
     println!("Interpreter balances: from={} to={}", av_i, bv_i);
 
     println!(
-        "wbnb n_iters={} | AOT avg={:?} total={:?} verify={} | Interpreter avg={:?} total={:?} verify={}",
+        "wbnb n_iters={} | AOT avg={:?} total={:?} (transact={:?}, commit={:?}) verify={} | Interpreter avg={:?} total={:?} (transact={:?}, commit={:?}) verify={}",
         iters,
-        d_aot / (iters as u32), d_aot, ok_aot,
-        d_interp / (iters as u32), d_interp, ok_int
+        d_aot / (iters as u32), d_aot, std::time::Duration::from_nanos((aot_transact_ns as u64) / (iters as u64)), std::time::Duration::from_nanos((aot_commit_ns as u64) / (iters as u64)), ok_aot,
+        d_interp / (iters as u32), d_interp, std::time::Duration::from_nanos((int_transact_ns as u64) / (iters as u64)), std::time::Duration::from_nanos((int_commit_ns as u64) / (iters as u64)), ok_int
     );
 }
 
