@@ -1,6 +1,5 @@
 use eyre::Result;
 use revm_context::ContextTr;
-use revmc_builtins as _;
 use revm_database::InMemoryDB;
 use revm_handler::{ExecuteCommitEvm, MainBuilder, MainContext};
 use revm_primitives::{address, Address, Bytes, TxKind, U256, keccak256};
@@ -43,22 +42,7 @@ fn main() -> Result<()> {
     let code = wbnb_code();
     let hash = keccak256(code.clone());
 
-    // AOT integrate via execute-frame override
-    revmc_context::extern_revmc! { fn wbnb; }
-    fn register_handler<DB: revm::Database + 'static>(handler: &mut revm::handler::register::EvmHandler<'_, (), DB>) {
-        let prev = handler.execution.execute_frame.clone();
-        handler.execution.execute_frame = std::sync::Arc::new(move |frame, memory, tables, context| {
-            let interpreter = frame.interpreter_mut();
-            let h = interpreter.contract.hash.unwrap_or_default();
-            // Use wbnb if code hash matches the loaded code
-            if h == keccak256(wbnb_code()) { Ok(unsafe { revmc_context::EvmCompilerFn::new(wbnb).call_with_interpreter_and_memory(interpreter, memory, context) }) } else { prev(frame, memory, tables, context) }
-        });
-    }
-    // rebuild evm with aot handler
-    let mut evm = evm
-        .modify()
-        .append_handler_register(register_handler)
-        .build();
+    // No AOT override here; keep interpreter-only to restore build health
 
     // Build MainnetContext with InMemoryDB
     let ctx = revm_context::Context::mainnet().with_db(InMemoryDB::default());
