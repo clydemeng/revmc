@@ -23,10 +23,11 @@ fn code_hash() -> B256 { keccak256(code()) }
 
 revmc_context::extern_revmc! { fn merkle_hash; }
 
-pub struct ExternalContext;
+pub struct ExternalContext { target_hash: B256, aot_fn: revmc_context::EvmCompilerFn }
 impl ExternalContext {
+    #[inline]
     fn get_function(&self, bytecode_hash: B256) -> Option<revmc_context::EvmCompilerFn> {
-        if bytecode_hash == code_hash() { Some(revmc_context::EvmCompilerFn::new(merkle_hash)) } else { None }
+        if bytecode_hash == self.target_hash { Some(self.aot_fn) } else { None }
     }
 }
 
@@ -39,8 +40,13 @@ fn register_handler<DB: Database + 'static>(handler: &mut EvmHandler<'_, Externa
     });
 }
 
-fn build_evm_with_aot<'a, DB: Database + 'static>(db: DB) -> revm::Evm<'a, ExternalContext, DB> {
-    revm::Evm::builder().with_db(db).with_external_context(ExternalContext).append_handler_register(register_handler).build()
+fn build_evm_with_aot<'a, DB: Database + 'static>(db: DB, target_hash: B256) -> revm::Evm<'a, ExternalContext, DB> {
+    let aot = revmc_context::EvmCompilerFn::new(merkle_hash);
+    revm::Evm::builder()
+        .with_db(db)
+        .with_external_context(ExternalContext { target_hash, aot_fn: aot })
+        .append_handler_register(register_handler)
+        .build()
 }
 
 fn build_evm_plain<'a, DB: Database>(db: DB) -> revm::Evm<'a, (), DB> {
@@ -55,21 +61,22 @@ fn main() {
     let code_bytes = code();
     let hash = code_hash();
     let addr = revm::primitives::Address::with_last_byte(0x55);
-    let selector: [u8; 4] = [0x30, 0x62, 0x7b, 0x7c]; // Benchmark()
+    const SELECTOR: [u8; 4] = [0x30, 0x62, 0x7b, 0x7c]; // Benchmark()
+    let selector_bytes = Bytes::from(SELECTOR.to_vec());
 
     // AOT
     let db_aot = CacheDB::new(EmptyDB::new());
-    let mut evm_aot = build_evm_with_aot(db_aot);
+    let mut evm_aot = build_evm_with_aot(db_aot, hash);
     evm_aot.db_mut().insert_account_info(addr, AccountInfo { code_hash: hash, code: Some(Bytecode::new_raw(code_bytes.clone())), ..Default::default() });
     evm_aot.context.evm.env.tx.transact_to = revm_primitives::TransactTo::Call(addr);
-    evm_aot.context.evm.env.tx.data = Bytes::from(selector.to_vec());
+    evm_aot.context.evm.env.tx.data = selector_bytes.clone();
 
     // Interpreter
     let db_plain = CacheDB::new(EmptyDB::new());
     let mut evm_plain = build_evm_plain(db_plain);
     evm_plain.db_mut().insert_account_info(addr, AccountInfo { code_hash: hash, code: Some(Bytecode::new_raw(code_bytes.clone())), ..Default::default() });
     evm_plain.context.evm.env.tx.transact_to = revm_primitives::TransactTo::Call(addr);
-    evm_plain.context.evm.env.tx.data = Bytes::from(selector.to_vec());
+    evm_plain.context.evm.env.tx.data = selector_bytes.clone();
 
     // JIT setup (compile bytecode and prepare interpreter+host)
     let context = revmc::llvm::inkwell::context::Context::create();
@@ -81,7 +88,7 @@ fn main() {
     let mut env = Env::default();
     env.tx.caller = address!("0000000000000000000000000000000000000001");
     env.tx.transact_to = revm_primitives::TransactTo::Call(addr);
-    env.tx.data = Bytes::from(selector.to_vec());
+    env.tx.data = selector_bytes.clone();
     env.tx.gas_limit = 1_000_000_000;
     let analysed = {
         let analysed_code = code_bytes.clone();
@@ -98,29 +105,43 @@ fn main() {
     };
 
     // Warmup
-    for _ in 0..warmup { let _ = evm_aot.transact().unwrap(); }
-    for _ in 0..warmup { let _ = evm_plain.transact().unwrap(); }
+    for _ in 0..warmup { let _ = evm_aot.transact_preverified().unwrap(); }
+    for _ in 0..warmup { let _ = evm_plain.transact_preverified().unwrap(); }
     for _ in 0..warmup { run_jit(); }
 
     // Timed
-    let t0 = Instant::now();
-    for _ in 0..n_iters { let _ = evm_aot.transact().unwrap(); }
-    let aot_elapsed = t0.elapsed();
+    let mut aot_transact_ns: u128 = 0; let mut aot_commit_ns: u128 = 0;
+    for _ in 0..n_iters {
+        let t0 = Instant::now();
+        let r = evm_aot.transact_preverified().unwrap();
+        aot_transact_ns += t0.elapsed().as_nanos();
+        let t1 = Instant::now();
+        evm_aot.db_mut().commit(r.state);
+        aot_commit_ns += t1.elapsed().as_nanos();
+    }
+    let aot_elapsed = std::time::Duration::from_nanos((aot_transact_ns + aot_commit_ns) as u64);
 
-    let t1 = Instant::now();
-    for _ in 0..n_iters { let _ = evm_plain.transact().unwrap(); }
-    let plain_elapsed = t1.elapsed();
+    let mut int_transact_ns: u128 = 0; let mut int_commit_ns: u128 = 0;
+    for _ in 0..n_iters {
+        let t0 = Instant::now();
+        let r = evm_plain.transact_preverified().unwrap();
+        int_transact_ns += t0.elapsed().as_nanos();
+        let t1 = Instant::now();
+        evm_plain.db_mut().commit(r.state);
+        int_commit_ns += t1.elapsed().as_nanos();
+    }
+    let plain_elapsed = std::time::Duration::from_nanos((int_transact_ns + int_commit_ns) as u64);
 
     let t2 = Instant::now();
     for _ in 0..n_iters { run_jit(); }
     let jit_elapsed = t2.elapsed();
 
     println!(
-        "merkle_hash n_iters={} | AOT avg={:?} total={:?} | JIT avg={:?} total={:?} | Interpreter avg={:?} total={:?}",
+        "merkle_hash n_iters={} | AOT avg={:?} total={:?} (transact={:?}, commit={:?}) | JIT avg={:?} total={:?} | Interpreter avg={:?} total={:?} (transact={:?}, commit={:?})",
         n_iters,
-        aot_elapsed / (n_iters as u32), aot_elapsed,
+        aot_elapsed / (n_iters as u32), aot_elapsed, std::time::Duration::from_nanos((aot_transact_ns as u64) / (n_iters as u64)), std::time::Duration::from_nanos((aot_commit_ns as u64) / (n_iters as u64)),
         jit_elapsed / (n_iters as u32), jit_elapsed,
-        plain_elapsed / (n_iters as u32), plain_elapsed
+        plain_elapsed / (n_iters as u32), plain_elapsed, std::time::Duration::from_nanos((int_transact_ns as u64) / (n_iters as u64)), std::time::Duration::from_nanos((int_commit_ns as u64) / (n_iters as u64))
     );
 }
 

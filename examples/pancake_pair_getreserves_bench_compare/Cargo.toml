@@ -1,0 +1,15 @@
+[package]
+name = "revmc-examples-pancake-pair-getreserves-bench-compare"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+revm = { workspace = true }
+revm-primitives = { workspace = true }
+revmc-context = { workspace = true }
+revmc-builtins = { workspace = true }
+
+[build-dependencies]
+revmc = { workspace = true, default-features = false, features = ["llvm-prefer-dynamic", "asm-keccak"] }
+revmc-build = { workspace = true }
+cc = "1.0"

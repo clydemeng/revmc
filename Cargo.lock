@@ -3158,6 +3158,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "revmc-examples-pancake-pair-getreserves-bench-compare"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "revm",
+ "revm-primitives 15.1.0",
+ "revmc",
+ "revmc-build",
+ "revmc-builtins",
+ "revmc-context",
+]
+
+[[package]]
 name = "revmc-examples-runner"
 version = "0.1.0"
 dependencies = [
